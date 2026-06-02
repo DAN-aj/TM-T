@@ -1,0 +1,6 @@
+{
+  "name": "E-Commerce System",
+  "description": "Hệ thống website Thương mại điện tử cung cấp thiết bị điện tử - gia dụng",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
