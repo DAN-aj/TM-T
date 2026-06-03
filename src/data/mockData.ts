@@ -25,7 +25,8 @@ export const mockUsers: User[] = [
     email: 'admin@electro.com',
     phone: '0987654321',
     status: 'active',
-    created_at: '2026-01-01T08:00:00Z'
+    created_at: '2026-01-01T08:00:00Z',
+    address: 'Văn phòng điều hành Electro'
   },
   {
     user_id: 2,
@@ -34,7 +35,8 @@ export const mockUsers: User[] = [
     email: 'customer@electro.com',
     phone: '0912345678',
     status: 'active',
-    created_at: '2026-02-15T10:30:00Z'
+    created_at: '2026-02-15T10:30:00Z',
+    address: 'Số 12, Đường Nguyễn Trãi, Quận Thanh Xuân, Hà Nội'
   },
   {
     user_id: 3,
@@ -43,7 +45,8 @@ export const mockUsers: User[] = [
     email: 'ngocduonganhxk@gmail.com',
     phone: '0933445566',
     status: 'active',
-    created_at: '2026-03-10T14:24:00Z'
+    created_at: '2026-03-10T14:24:00Z',
+    address: 'Số 250, Phố Kim Mã, Quận Ba Đình, Hà Nội'
   }
 ];
 

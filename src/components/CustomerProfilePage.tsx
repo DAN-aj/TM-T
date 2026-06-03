@@ -35,6 +35,7 @@ export default function CustomerProfilePage({
   // Trạng thái lưu trữ thông tin cá nhân của khách hàng
   const [customerInfo, setCustomerInfo] = useState(() => {
     const userToUse = currentUser || (() => {
+      // Ghi chú tiếng Việt: Đọc thông tin phiên đăng nhập hiện tại từ localStorage
       const cached = localStorage.getItem('electro_current_user');
       if (cached) {
         try { return JSON.parse(cached); } catch (e) {}
@@ -46,7 +47,8 @@ export default function CustomerProfilePage({
       name: userToUse?.full_name || 'Phạm Minh Tuấn',
       email: userToUse?.email || 'ngocduonganhxk@gmail.com',
       phone: userToUse?.phone || '0987654321',
-      address: userToUse?.role_id === 1 ? 'Văn phòng điều hành Electro' : 'Số 15, Phố Cầu Giấy, Quận Cầu Giấy, Hà Nội',
+      // Ghi chú tiếng Việt: Khắc phục lỗi địa chỉ mặc định (Dynamic Address Update): Đọc động từ userToUse.address, không gán cứng chuỗi text mặc định nữa
+      address: userToUse?.address || (userToUse?.role_id === 1 ? 'Văn phòng điều hành Electro' : 'Chưa cập nhật địa chỉ. Vui lòng điền thông tin khi thực hiện đặt hàng.'),
       rank: userToUse?.role_id === 1 ? 'Kiểm toán hệ thống (Admin)' : 'Thành viên Đồng',
       avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200'
     };
@@ -107,7 +109,8 @@ export default function CustomerProfilePage({
           name: userToUse.full_name,
           email: userToUse.email,
           phone: userToUse.phone,
-          address: userToUse.role_id === 1 ? 'Văn phòng điều hành Electro' : 'Số 15, Phố Cầu Giấy, Quận Cầu Giấy, Hà Nội',
+          // Ghi chú tiếng Việt: Khắc phục lỗi địa chỉ mặc định dứt điểm bằng cách đọc động thuộc tính address của tài khoản đang đăng nhập hiện tại
+          address: userToUse.address || (userToUse.role_id === 1 ? 'Văn phòng điều hành Electro' : 'Chưa cập nhật địa chỉ. Vui lòng điền thông tin khi thực hiện đặt hàng.'),
           rank: userToUse.role_id === 1 ? 'Quản trị viên (Admin)' : 'Thành viên Đồng',
           avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200'
         });

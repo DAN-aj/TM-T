@@ -341,12 +341,7 @@ export default function AuthModal({
               </button>
             </div>
 
-            {/* Hint nhanh tài khoản mẫu dưới chân form cho khách dễ thử nghiệm */}
-            <div className="bg-slate-50 p-3 rounded-xl border border-dashed mt-4 text-[10px] text-gray-500 leading-normal">
-              <span className="font-bold text-slate-700 uppercase block mb-1">Tài khoản hỗ trợ test nhanh:</span>
-              <p>📍 Vai trò Customer: <strong className="text-slate-800 select-all">customer@electro.com</strong> (Pass: 123456)</p>
-              <p>📍 Vai trò Admin: <strong className="text-slate-800 select-all font-bold text-red-650">admin@electro.com</strong> (Pass: 123456)</p>
-            </div>
+
           </form>
         )}
 

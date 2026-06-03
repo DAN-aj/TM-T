@@ -99,10 +99,67 @@ export default function App() {
     }
     return null; // Không tự động giả lập đăng nhập khách hàng nữa, mặc định bắt đầu là đăng xuất/guest
   });
+
+  // Biến Ref để theo dõi email được nạp cuối cùng của giỏ hàng, tránh chạy ghi nhiễm chéo khi chuyển đổi state (Cart Isolation & Flush Flow Ref)
+  const lastLoadedCartUserRef = React.useRef<string | null>(currentUser?.email || null);
+
+  // Ghi chú tiếng Việt: Hàm điều phối phiên đăng nhập và cô lập giỏ hàng theo phân luồng tài khoản (Centralized User State and Isolated Cart Controller)
+  const handleSetCurrentUser = (user: UserType | null) => {
+    // Lưu giỏ hàng của người dùng vừa thoát vào vùng nhớ riêng của họ trước khi chuyển giao trạng thái
+    const prevEmail = currentUser?.email;
+    if (prevEmail) {
+      localStorage.setItem(`cart_${prevEmail}`, JSON.stringify(cartItems));
+    } else {
+      localStorage.setItem('electro_cart_items_list', JSON.stringify(cartItems));
+    }
+
+    const nextEmail = user?.email || null;
+    lastLoadedCartUserRef.current = nextEmail; // Khóa đồng bộ ref ngay lập tức
+
+    if (user) {
+      // Đọc hoặc lập vùng nhớ giỏ hàng tương ứng của tài khoản mới
+      const customCartKey = `cart_${user.email}`;
+      const savedCart = localStorage.getItem(customCartKey);
+      if (savedCart) {
+        try {
+          const parsedCart = JSON.parse(savedCart);
+          setCartItems(Array.isArray(parsedCart) ? parsedCart : []);
+        } catch (e) {
+          setCartItems([]);
+        }
+      } else {
+        setCartItems([]); // Trả về rỗng [] nếu tài khoản mới chưa có giỏ hàng, tránh nhiễm chéo tuyệt đối
+      }
+
+      setCurrentUser(user);
+      localStorage.setItem('electro_current_user', JSON.stringify(user));
+      localStorage.setItem('user_role', user.role_id === 1 ? 'admin' : 'customer');
+    } else {
+      // Khi nhấn Đăng xuất, giải phóng sạch toàn bộ giỏ hàng trên giao diện và rã khóa đăng nhập
+      setCartItems([]);
+      setCurrentUser(null);
+      localStorage.removeItem('electro_current_user');
+      localStorage.removeItem('user_role');
+    }
+  };
   const [products, setProducts] = useState<Product[]>(mockProducts); // Danh sách sản phẩm khả dụng trong kho hàng điện máy
   const [reviews, setReviews] = useState<Review[]>(mockReviews); // Danh sách bình luận & đánh giá độc lập của khách hàng
   const [cartItems, setCartItems] = useState<CartItem[]>(() => {
-    const saved = localStorage.getItem('electro_cart_items_list');
+    // Ghi chú tiếng Việt: Tìm kiếm thông tin tài khoản hiện hành lưu tại localStorage trước để đồng bộ nạp đúng giỏ hàng
+    const savedUser = localStorage.getItem('electro_current_user');
+    let email = 'anonymous';
+    if (savedUser) {
+      try {
+        const parsed = JSON.parse(savedUser);
+        if (parsed && parsed.email) {
+          email = parsed.email;
+        }
+      } catch (e) {}
+    }
+
+    // Ghi chú tiếng Việt: Xác định mã định danh khóa giỏ hàng cô lập dạng cart_${current_user_email}
+    const cartKey = email === 'anonymous' ? 'electro_cart_items_list' : `cart_${email}`;
+    const saved = localStorage.getItem(cartKey);
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
@@ -114,7 +171,7 @@ export default function App() {
       }
     }
     return [];
-  }); // Các phần tử giỏ hàng hiện thời của người dùng khách
+  }); // Các phần tử giỏ hàng cô lập theo tên định danh tài khoản độc lập tránh chéo nhiễm
   const [orders, setOrders] = useState<Order[]>(() => {
     const saved = localStorage.getItem('electro_orders_list2026');
     if (saved) {
@@ -343,10 +400,17 @@ export default function App() {
     localStorage.setItem('electro_users_list2026', JSON.stringify(users));
   }, [users]);
 
-  // Đồng bộ giỏ hàng về localStorage để khi F5 / Chuyển khoản / Đăng nhập không bị mất
+  // Ghi chú tiếng Việt: Đồng bộ giỏ hàng về vùng nhớ độc lập theo đúng tài khoản đang sở hữu (Cart Isolation Sync Flow)
   React.useEffect(() => {
-    localStorage.setItem('electro_cart_items_list', JSON.stringify(cartItems));
-  }, [cartItems]);
+    const currentEmail = currentUser?.email || null;
+    if (lastLoadedCartUserRef.current === currentEmail) {
+      const key = currentUser ? `cart_${currentUser.email}` : 'electro_cart_items_list';
+      localStorage.setItem(key, JSON.stringify(cartItems));
+    } else {
+      // Khi phát hiện lệch trạng thái trung gian, cập nhật lại mốc so sánh mà không ghi đè dữ liệu
+      lastLoadedCartUserRef.current = currentEmail;
+    }
+  }, [cartItems, currentUser]);
 
   // Đồng bộ danh sách đơn đặt hàng về localStorage
   React.useEffect(() => {
@@ -358,9 +422,7 @@ export default function App() {
     if (currentUser && currentUser.role_id !== 1) {
       const dbUser = users.find(u => u.user_id === currentUser.user_id);
       if (dbUser && (dbUser.status === 'inactive' || dbUser.status === 'pending')) {
-        setCurrentUser(null);
-        localStorage.removeItem('electro_current_user');
-        localStorage.removeItem('user_role');
+        handleSetCurrentUser(null);
         addToast(`Tài khoản của bạn đã bị thay đổi trạng thái (${dbUser.status === 'inactive' ? 'Bị khóa' : 'Chờ phê duyệt'}). Hệ thống tự động đăng xuất để bảo mật!`, 'error');
         setCurrentView('home');
         navigate('/');
@@ -775,7 +837,34 @@ export default function App() {
       customerEmail: currentUser?.email || 'guest@example.com'
     };
 
-    setOrders((prev) => [newOrder, ...prev]);
+    // Ghi chú tiếng Việt: Đồng bộ đơn hàng mới đặt vào localStorage để tránh mất lịch sử khi F5/reload (Persistent Order History)
+    setOrders((prev) => {
+      const updatedOrders = [newOrder, ...prev];
+      localStorage.setItem('electro_orders_list2026', JSON.stringify(updatedOrders)); // Lưu trữ bền vững lập tức
+      return updatedOrders;
+    });
+
+    // Ghi chú tiếng Việt: Cập nhật Địa chỉ mặc định động (Dynamic Address Update): 
+    // Khi đặt hàng, ghi đè địa chỉ mới vào thực thể tài khoản đăng nhập hiện thời và danh sách người dùng
+    if (currentUser) {
+      const updatedUser: UserType = {
+        ...currentUser,
+        address: orderData.shippingAddress,
+        phone: orderData.phone || currentUser.phone,
+        full_name: orderData.fullName || currentUser.full_name
+      };
+
+      // Ghi chú tiếng Việt: Đồng bộ danh sách tài khoản tổng và ghi đè địa chỉ mới lưu localStorage
+      setUsers((prevUsers) => {
+        const updatedUsersList = prevUsers.map((u) => u.user_id === currentUser.user_id ? updatedUser : u);
+        localStorage.setItem('electro_users_list2026', JSON.stringify(updatedUsersList)); // Lưu trữ bền vững danh sách user có địa chỉ mới
+        return updatedUsersList;
+      });
+
+      // Cập nhật trạng thái người dùng hiện hành sang địa chỉ mới để Profile cập nhật trực quan tức thì
+      setCurrentUser(updatedUser);
+      localStorage.setItem('electro_current_user', JSON.stringify(updatedUser)); // Đồng bộ cấu hình phiên đăng nhập
+    }
 
     // Trừ tồn kho tương ứng của các sản phẩm thực tế vừa mua
     setProducts((prevProducts) => {
@@ -1111,7 +1200,7 @@ export default function App() {
       {/* 1. Header component (Trực diện thanh đầu) */}
       <Header
         currentUser={currentUser}
-        setCurrentUser={setCurrentUser}
+        setCurrentUser={handleSetCurrentUser}
         allUsers={users}
         cartItems={cartItems}
         onCartClick={() => {
@@ -1467,9 +1556,7 @@ export default function App() {
                 navigate('/');
               }}
               onLogout={() => {
-                setCurrentUser(null);
-                localStorage.removeItem('electro_current_user');
-                localStorage.removeItem('user_role');
+                handleSetCurrentUser(null);
                 setCurrentView('home');
                 navigate('/');
                 addToast('Đăng xuất thành công!', 'info');
@@ -2123,7 +2210,7 @@ export default function App() {
         allUsers={users}
         onAddUser={(newUser) => setUsers((prev) => [...prev, newUser])}
         onLoginSuccess={(user) => {
-          setCurrentUser(user);
+          handleSetCurrentUser(user);
           addToast(`Đăng nhập thành công dưới tư cách thành viên "${user.full_name}"!`, 'success');
           if (user.role_id === 1) {
             setIsAdminView(true);

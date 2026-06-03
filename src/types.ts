@@ -16,9 +16,10 @@ export interface User {
   full_name: string; // Họ và tên đầy đủ của người dùng
   email: string; // Địa chỉ email đăng nhập
   phone: string; // Số điện thoại liên hệ
-  status: 'active' | 'inactive' | 'pending'; // Trạng thái tài khoản hoạt động, khóa hoặc chờ duyệt
+  status: 'active' | 'inactive' | 'pending'; // Trạng thái tài khoản hoạt động, khóa hoặc duyệt
   created_at: string; // Ngày tạo tài khoản (định dạng ngày tháng)
   password?: string; // Mật khẩu tài khoản phục vụ xác thực bảo mật
+  address?: string; // Địa chỉ nhận gia dụng điện máy cập nhật động tinh gọn
 }
 
 // Định nghĩa kiểu dữ liệu cho danh mục sản phẩm (Category) tương ứng với bảng 'categories'
