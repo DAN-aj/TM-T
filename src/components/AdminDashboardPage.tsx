@@ -73,6 +73,7 @@ interface Order {
   status: 'Chờ xác nhận' | 'Đóng gói' | 'Vận chuyển' | 'Hoàn thành' | 'Đã hủy';
   cancelReason?: string; // Lý do hủy nếu có
   trackingNumber?: string; // Mã vận đơn giả lập sinh ra khi gửi API vận chuyển
+  createdAt?: string;
 }
 
 import { User as UserType, Order as OrderType, Product as ProductType } from '../types';
@@ -84,6 +85,7 @@ interface AdminDashboardPageProps {
   onOrdersChange?: (updatedOrders: OrderType[]) => void;
   products?: ProductType[];
   onProductsChange?: (updatedProducts: ProductType[]) => void;
+  onBackToShop?: () => void;
 }
 
 // Kiểu dữ liệu Người dùng
@@ -154,7 +156,8 @@ function mapAppOrderToAdminOrder(o: OrderType, allUsers: UserType[]): Order {
     ],
     totalAmount: o.total_amount,
     paymentMethod: o.payment_status === 'paid' ? 'QR' : 'COD',
-    status: status
+    status: status,
+    createdAt: o.created_at || new Date().toISOString()
   };
 }
 
@@ -675,56 +678,200 @@ export default function AdminDashboardPage(props: AdminDashboardPageProps) {
   };
 
   // =========================================================================================
-  // TÍCH HỢP TÀI CHÍNH TỐT: Doanh thu thực tế chỉ tính trên các đơn hàng đã 'Hoàn thành'
+  // BỘ LỌC ĐƠN HÀNG THEO THỜI GIAN CHUẨN XÁC DÀNH CHO ANALYTICS
+  // =========================================================================================
+  const timeframeFilteredOrders = useMemo(() => {
+    const today = new Date();
+    
+    return orders.filter(o => {
+      if (!o.date) return false;
+      const orderDate = new Date(o.date);
+      
+      if (timeframe === 'day') {
+        return today.getFullYear() === orderDate.getFullYear() &&
+               today.getMonth() === orderDate.getMonth() &&
+               today.getDate() === orderDate.getDate();
+      } else if (timeframe === 'week') {
+        const currentDay = today.getDay();
+        const diffToMonday = currentDay === 0 ? -6 : 1 - currentDay;
+        const monday = new Date(today);
+        monday.setDate(today.getDate() + diffToMonday);
+        monday.setHours(0,0,0,0);
+        
+        const sunday = new Date(monday);
+        sunday.setDate(monday.getDate() + 6);
+        sunday.setHours(23, 59, 59, 999);
+        
+        return orderDate >= monday && orderDate <= sunday;
+      } else if (timeframe === 'month') {
+        return today.getFullYear() === orderDate.getFullYear() &&
+               today.getMonth() === orderDate.getMonth();
+      } else if (timeframe === 'custom') {
+        return o.date >= customDates.start && o.date <= customDates.end;
+      }
+      return true;
+    });
+  }, [orders, timeframe, customDates]);
+
+  // TÍCH HỢP TÀI CHÍNH TỐT: Doanh thu thực tế chỉ tính trên các đơn hàng đã 'Hoàn thành' trong timeframe đã chọn
   // =========================================================================================
   const completedOrdersRevenue = useMemo(() => {
-    // Tính tổng tiền dựa trên các mặt hàng có trạng thái Hoàn thành
-    return orders
+    // Tính tổng tiền dựa trên các mặt hàng có trạng thái Hoàn thành trong khoảng thời gian đã chọn
+    return timeframeFilteredOrders
       .filter(o => o.status === 'Hoàn thành')
       .reduce((sum, order) => sum + order.totalAmount, 0);
-  }, [orders]);
+  }, [timeframeFilteredOrders]);
 
+  // Các helper định dạng nhãn cho biểu đồ trực quan
+  const getHourSlot = (createdAtStr?: string) => {
+    if (!createdAtStr) return '12:00';
+    try {
+      const dateVal = new Date(createdAtStr);
+      const hour = dateVal.getHours();
+      if (hour < 10) return '08:00';
+      if (hour < 14) return '12:00';
+      if (hour < 18) return '16:00';
+      if (hour < 21) return '20:00';
+      return '22:00';
+    } catch (e) {
+      return '12:00';
+    }
+  };
+
+  const getDayOfWeekLabel = (dateStr: string) => {
+    try {
+      const d = new Date(dateStr);
+      const day = d.getDay(); // 0 is Sunday, 1 is Monday ...
+      const labels = [
+        'Chủ Nhật',
+        'Thứ Hai',
+        'Thứ Ba',
+        'Thứ Tư',
+        'Thứ Năm',
+        'Thứ Sáu',
+        'Thứ Bảy'
+      ];
+      return labels[day];
+    } catch (e) {
+      return 'Thứ Hai';
+    }
+  };
+
+  const getWeekOfMonthLabel = (dateStr: string) => {
+    try {
+      const d = new Date(dateStr);
+      const dateNum = d.getDate();
+      if (dateNum <= 7) return 'Tuần 1';
+      if (dateNum <= 14) return 'Tuần 2';
+      if (dateNum <= 21) return 'Tuần 3';
+      return 'Tuần 4';
+    } catch (e) {
+      return 'Tuần 1';
+    }
+  };
+
+  const getCustomPeriodLabel = (dateStr: string, startStr: string, endStr: string) => {
+    try {
+      const startT = new Date(startStr).getTime();
+      const endT = new Date(endStr).getTime();
+      const currentT = new Date(dateStr).getTime();
+      if (endT === startT) return 'Đầu kỳ';
+      const pct = (currentT - startT) / (endT - startT);
+      if (pct < 0.33) return 'Đầu kỳ';
+      if (pct < 0.66) return 'Giữa kỳ';
+      return 'Cuối kỳ';
+    } catch (e) {
+      return 'Đầu kỳ';
+    }
+  };
 
   // =========================================================================================
   // SƠ ĐỒ BIẾN ĐỘNG DOANH THU (BIỂU ĐỒ CỘT) DỰA TRÊN LỰA CHỌN CHU KỲ (TIMEFRAME) VÀ MÃ ĐƠN HOÀN THÀNH
   // Sử dụng cấu trúc CSS Flexbox/Grid thuần để tối ưu không bị lỗi thư viện
   // =========================================================================================
   const chartData = useMemo(() => {
-    // Tính toán lại biểu đồ dựa trên điều kiện thời gian.
-    // Nếu doanh thu từ đơn hàng hoàn thành thay đổi, chúng ta cộng nó vào biểu đồ để biểu thị tính tích hợp
-    const baseAmountAddition = completedOrdersRevenue / 5; // Chia đều tăng tích hợp biểu thị
+    const completedOrdersInTimeframe = timeframeFilteredOrders.filter(o => o.status === 'Hoàn thành');
 
     if (timeframe === 'day') {
-      return [
-        { label: '08:00', amount: 4800000 + baseAmountAddition * 0.1 },
-        { label: '12:00', amount: 9200000 + baseAmountAddition * 0.2 },
-        { label: '16:00', amount: 15400000 + baseAmountAddition * 0.4 },
-        { label: '20:00', amount: 8200000 + baseAmountAddition * 0.2 },
-        { label: '22:00', amount: 3500000 + baseAmountAddition * 0.1 }
-      ];
+      const slots: { [key: string]: number } = {
+        '08:00': 0,
+        '12:00': 0,
+        '16:00': 0,
+        '20:00': 0,
+        '22:00': 0
+      };
+      
+      completedOrdersInTimeframe.forEach(o => {
+        const slot = getHourSlot(o.createdAt);
+        slots[slot] += o.totalAmount;
+      });
+      
+      return Object.keys(slots).map(label => ({
+        label,
+        amount: slots[label]
+      }));
     } else if (timeframe === 'week') {
-      return [
-        { label: 'Thứ Hai', amount: 12000000 + baseAmountAddition * 0.15 },
-        { label: 'Thứ Tư', amount: 31000000 + baseAmountAddition * 0.3 },
-        { label: 'Thứ Sáu', amount: 24000000 + baseAmountAddition * 0.2 },
-        { label: 'Chủ Nhật', amount: 48000000 + baseAmountAddition * 0.35 }
-      ];
+      const slots: { [key: string]: number } = {
+        'Thứ Hai': 0,
+        'Thứ Ba': 0,
+        'Thứ Tư': 0,
+        'Thứ Năm': 0,
+        'Thứ Sáu': 0,
+        'Thứ Bảy': 0,
+        'Chủ Nhật': 0
+      };
+      
+      completedOrdersInTimeframe.forEach(o => {
+        const label = getDayOfWeekLabel(o.date);
+        if (slots[label] !== undefined) {
+          slots[label] += o.totalAmount;
+        }
+      });
+      
+      return Object.keys(slots).map(label => ({
+        label,
+        amount: slots[label]
+      }));
     } else if (timeframe === 'custom') {
-      return [
-        { label: 'Đầu kỳ', amount: 15000000 + baseAmountAddition * 0.3 },
-        { label: 'Giữa kỳ', amount: 38000000 + baseAmountAddition * 0.4 },
-        { label: 'Cuối kỳ', amount: 22000000 + baseAmountAddition * 0.3 }
-      ];
+      const slots: { [key: string]: number } = {
+        'Đầu kỳ': 0,
+        'Giữa kỳ': 0,
+        'Cuối kỳ': 0
+      };
+      
+      completedOrdersInTimeframe.forEach(o => {
+        const label = getCustomPeriodLabel(o.date, customDates.start, customDates.end);
+        if (slots[label] !== undefined) {
+          slots[label] += o.totalAmount;
+        }
+      });
+      
+      return Object.keys(slots).map(label => ({
+        label,
+        amount: slots[label]
+      }));
     } else {
       // Mặc định là Tháng này (month)
-      return [
-        { label: 'Tuần 1', amount: 18000000 + baseAmountAddition * 0.15 },
-        { label: 'Tuần 2', amount: 35000000 + baseAmountAddition * 0.25 },
-        { label: 'Tuần 3', amount: 12000000 + baseAmountAddition * 0.1 },
-        { label: 'Tuần 4', amount: 56000000 + baseAmountAddition * 0.5 }
-      ];
+      const slots: { [key: string]: number } = {
+        'Tuần 1': 0,
+        'Tuần 2': 0,
+        'Tuần 3': 0,
+        'Tuần 4': 0
+      };
+      
+      completedOrdersInTimeframe.forEach(o => {
+        const label = getWeekOfMonthLabel(o.date);
+        if (slots[label] !== undefined) {
+          slots[label] += o.totalAmount;
+        }
+      });
+      
+      return Object.keys(slots).map(label => ({
+        label,
+        amount: slots[label]
+      }));
     }
-  }, [timeframe, completedOrdersRevenue]);
+  }, [timeframe, timeframeFilteredOrders, customDates]);
 
   // Tìm giá trị cao nhất trong cột đồ thị để lập tỷ lệ chiều cao trực quan phù hợp
   const maxRevenueValue = useMemo(() => {
@@ -897,6 +1044,20 @@ Nội dung: Trạng thái tài khoản của bạn hiện tại là: ${user.stat
               </div>
             </button>
 
+            {props.onBackToShop && (
+              <div className="pt-4 border-t border-slate-900 mt-4 px-1">
+                <button
+                  onClick={props.onBackToShop}
+                  className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all justify-start text-emerald-400 bg-slate-900 hover:bg-slate-800 hover:text-white border border-slate-850 cursor-pointer"
+                  id="admin_sidebar_back_to_shop_btn"
+                  title="Nhấn để quay về giao diện xem cho Khách hàng"
+                >
+                  <RefreshCw size={16} className="text-emerald-400 shrink-0" />
+                  <span>Quay Về Shop</span>
+                </button>
+              </div>
+            )}
+
           </nav>
         </div>
 
@@ -991,9 +1152,11 @@ Nội dung: Trạng thái tài khoản của bạn hiện tại là: ${user.stat
               {/* Cột 1: Tổng doanh thu thuần */}
               <div className="bg-slate-950 p-6 rounded-2xl border border-slate-800 shadow-md flex items-center justify-between">
                 <div>
-                  <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Doanh thu thuần lũy kế</p>
+                  <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">
+                    Doanh thu ghi nhận ({timeframe === 'day' ? 'Hôm nay' : timeframe === 'week' ? 'Tuần này' : timeframe === 'month' ? 'Tháng này' : 'Tùy chỉnh'})
+                  </p>
                   <p className="text-2xl font-black text-cyan-400 mt-2 font-mono">
-                    {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(completedOrdersRevenue + 85400000)}
+                    {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(completedOrdersRevenue)}
                   </p>
                   <span className="text-[10px] text-emerald-400 font-semibold flex items-center mt-1">
                     <TrendingUp size={12} className="mr-1" />
@@ -1008,9 +1171,11 @@ Nội dung: Trạng thái tài khoản của bạn hiện tại là: ${user.stat
               {/* Cột 2: Sản lượng đơn hàng */}
               <div className="bg-slate-950 p-6 rounded-2xl border border-slate-800 shadow-md flex items-center justify-between">
                 <div>
-                  <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Sản lượng đơn hàng</p>
+                  <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">
+                    Sản lượng đơn hàng ({timeframe === 'day' ? 'Hôm nay' : timeframe === 'week' ? 'Tuần này' : timeframe === 'month' ? 'Tháng này' : 'Tùy chỉnh'})
+                  </p>
                   <p className="text-2xl font-black text-white mt-2 font-mono">
-                    {orders.length} hóa đơn
+                    {timeframeFilteredOrders.length} hóa đơn
                   </p>
                   <span className="text-[10px] text-emerald-400 font-semibold flex items-center mt-1">
                     <TrendingUp size={12} className="mr-1" />

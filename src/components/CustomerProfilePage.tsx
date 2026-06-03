@@ -5,6 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { User, Mail, Phone, MapPin, ShoppingBag, CreditCard, Heart, LogOut, Loader2, ArrowLeft } from 'lucide-react';
+import { User as UserType, Order as OrderType } from '../types';
 
 interface OrderItem {
   id: string;
@@ -14,67 +15,165 @@ interface OrderItem {
   status: string;
 }
 
-export default function CustomerProfilePage() {
+interface CustomerProfilePageProps {
+  currentUser?: UserType | null;
+  allOrders?: OrderType[];
+  onBackToHome?: () => void;
+  onLogout?: () => void;
+}
+
+export default function CustomerProfilePage({
+  currentUser,
+  allOrders,
+  onBackToHome,
+  onLogout
+}: CustomerProfilePageProps) {
   // Trạng thái tải dữ liệu từ API
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Trạng thái lưu trữ thông tin cá nhân của khách hàng
-  const [customerInfo, setCustomerInfo] = useState({
-    name: 'Dương Ánh Ngọc',
-    email: 'anhngoc.duong@gmail.com',
-    phone: '0912345678',
-    address: 'Số 15, Phố Cầu Giấy, Quận Cầu Giấy, Hà Nội',
-    rank: 'Thành viên Vàng (Gold)',
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200'
+  const [customerInfo, setCustomerInfo] = useState(() => {
+    const userToUse = currentUser || (() => {
+      const cached = localStorage.getItem('electro_current_user');
+      if (cached) {
+        try { return JSON.parse(cached); } catch (e) {}
+      }
+      return null;
+    })();
+
+    return {
+      name: userToUse?.full_name || 'Phạm Minh Tuấn',
+      email: userToUse?.email || 'ngocduonganhxk@gmail.com',
+      phone: userToUse?.phone || '0987654321',
+      address: userToUse?.role_id === 1 ? 'Văn phòng điều hành Electro' : 'Số 15, Phố Cầu Giấy, Quận Cầu Giấy, Hà Nội',
+      rank: userToUse?.role_id === 1 ? 'Kiểm toán hệ thống (Admin)' : 'Thành viên Đồng',
+      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200'
+    };
   });
 
   // Giả lập danh sách đơn hàng đã mua của khách hàng
-  const [orders, setOrders] = useState<OrderItem[]>([
-    { id: 'DH-1024', date: '01/06/2026', product: 'Máy giặt LG Inverter 9.5 kg', total: 12490000, status: 'Đang giao hàng' },
-    { id: 'DH-0982', date: '15/05/2026', product: 'Nồi cơm điện cao tần Panasonic 1.8L', total: 3850000, status: 'Đã hoàn thành' }
-  ]);
+  const [orders, setOrders] = useState<OrderItem[]>(() => {
+    const userToUse = currentUser || (() => {
+      const cached = localStorage.getItem('electro_current_user');
+      if (cached) {
+        try { return JSON.parse(cached); } catch (e) {}
+      }
+      return null;
+    })();
+
+    const ordersList = allOrders || (() => {
+      const saved = localStorage.getItem('electro_orders_list2026');
+      if (saved) {
+        try { return JSON.parse(saved); } catch (e) {}
+      }
+      return [];
+    })();
+
+    if (userToUse && ordersList) {
+      // SỬA LỖI: thực hiện lọc mảng đơn hàng (orders.filter(order => order.customerEmail === currentUser.email))
+      const userOrders = ordersList.filter((order: any) => order.customerEmail === userToUse.email);
+      if (userOrders.length > 0) {
+        return userOrders.map((ord: any) => ({
+          id: `DH-${ord.order_id}`,
+          date: ord.created_at ? ord.created_at.substring(0, 10) : '2026-06-02',
+          product: 'Thiết bị điện tử gia dụng cao cấp Electro',
+          total: ord.total_amount,
+          status: ord.order_status === 'pending' ? 'Chờ xác nhận' :
+                  ord.order_status === 'processing' ? 'Đóng gói' :
+                  ord.order_status === 'shipped' ? 'Vận chuyển' :
+                  ord.order_status === 'delivered' ? 'Đã hoàn thành' :
+                  ord.order_status === 'cancelled' ? 'Đã hủy' : 'Đang xử lý'
+        }));
+      }
+    }
+
+    return [];
+  });
 
   // Lấy User ID sinh ra từ localStorage nếu đã đăng nhập từ module Auth
   useEffect(() => {
     const fetchProfileData = async () => {
-      // Đọc thông tin từ localStorage
-      const cachedUserStr = localStorage.getItem('electro_current_user') || localStorage.getItem('user_info');
-      if (cachedUserStr) {
-        try {
-          const cachedUser = JSON.parse(cachedUserStr);
-          const userId = cachedUser.user_id || 2; // Đăng nhập mặc định userId = 2 cho Đào Dương Anh
+      const userToUse = currentUser || (() => {
+        const cached = localStorage.getItem('electro_current_user');
+        if (cached) {
+          try { return JSON.parse(cached); } catch (e) {}
+        }
+        return null;
+      })();
 
+      if (userToUse) {
+        setCustomerInfo({
+          name: userToUse.full_name,
+          email: userToUse.email,
+          phone: userToUse.phone,
+          address: userToUse.role_id === 1 ? 'Văn phòng điều hành Electro' : 'Số 15, Phố Cầu Giấy, Quận Cầu Giấy, Hà Nội',
+          rank: userToUse.role_id === 1 ? 'Quản trị viên (Admin)' : 'Thành viên Đồng',
+          avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200'
+        });
+
+        // Fetch API profile
+        try {
           setLoading(true);
-          // Truy xuất từ endpoint /api/profile của dải database
-          const response = await fetch(`/api/profile?user_id=${userId}`);
+          const response = await fetch(`/api/profile?user_id=${userToUse.user_id}`);
           const data = await response.json();
 
           if (data.success && data.user) {
-            setCustomerInfo({
-              name: data.user.full_name || cachedUser.full_name || 'Đào Dương Anh',
-              email: data.user.email || cachedUser.email || 'ngocduonganhxk@gmail.com',
-              phone: data.user.phone || cachedUser.phone || '0987654321',
-              address: 'Số 15, Phố Cầu Giấy, Quận Cầu Giấy, Hà Nội', // Địa chỉ lấy mẫu
-              rank: data.user.role_id === 1 ? 'Quản trị viên (Admin)' : 'Thành viên Vàng (Gold)',
-              avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200'
-            });
+            setCustomerInfo(prev => ({
+              ...prev,
+              name: data.user.full_name || prev.name,
+              email: data.user.email || prev.email,
+              phone: data.user.phone || prev.phone
+            }));
 
-            if (data.ordersOrLogs && Array.isArray(data.ordersOrLogs) && data.ordersOrLogs.length > 0) {
-              const mappedOrders = data.ordersOrLogs.map((ord: any) => ({
+            if (data.ordersOrLogs && Array.isArray(data.ordersOrLogs)) {
+              // SỬA LỖI: thực hiện lọc mảng đơn hàng (orders.filter(order => order.customerEmail === currentUser.email))
+              const userOrders = data.ordersOrLogs.filter((order: any) => order.customerEmail === userToUse.email);
+              const mappedOrders = userOrders.map((ord: any) => ({
                 id: `DH-${ord.order_id || ord.id || 'MOCK'}`,
-                date: ord.created_at ? new Date(ord.created_at).toLocaleDateString('vi-VN') : 'Vừa xong',
-                product: ord.product_name || 'Laptop Electro ProBook X14 Carbon',
-                total: ord.total_amount || ord.price || 24990000,
-                status: ord.order_status === 'pending' ? 'Chờ kiểm duyệt' :
-                        ord.order_status === 'delivered' ? 'Đã hoàn thành' : 'Đang sửa đổi'
+                date: ord.created_at ? ord.created_at.substring(0, 10) : '2026-06-02',
+                product: ord.product_name || 'Thiết bị điện tử gia dụng cao cấp Electro',
+                total: ord.total_amount || ord.price || 24900000,
+                status: ord.order_status === 'pending' ? 'Chờ xác nhận' :
+                        ord.order_status === 'processing' ? 'Đóng gói' :
+                        ord.order_status === 'shipped' ? 'Vận chuyển' :
+                        ord.order_status === 'delivered' ? 'Đã hoàn thành' :
+                        ord.order_status === 'cancelled' ? 'Đã hủy' : 'Đang xử lý'
               }));
               setOrders(mappedOrders);
+            } else {
+              setOrders([]);
             }
           }
         } catch (err) {
-          console.error('Đọc API lỗi: ', err);
-          setError('Không kết nối được SQL Server, đang chạy chế độ giả lập dự phòng.');
+          console.log('Chế độ đồng bộ dữ liệu Offline/Local khả dụng.');
+          // Sử dụng allOrders được truyền xuống từ master state nếu fetch lỗi
+          const oList = allOrders || (() => {
+            const saved = localStorage.getItem('electro_orders_list2026');
+            if (saved) {
+              try { return JSON.parse(saved); } catch (e) {}
+            }
+            return [];
+          })();
+
+          if (oList) {
+            // SỬA LỖI: thực hiện lọc mảng đơn hàng (orders.filter(order => order.customerEmail === currentUser.email))
+            const userOrders = oList.filter((order: any) => order.customerEmail === userToUse.email);
+            const mapped = userOrders.map((ord: any) => ({
+              id: `DH-${ord.order_id}`,
+              date: ord.created_at ? ord.created_at.substring(0, 10) : '2026-06-02',
+              product: 'Thiết bị điện tử gia dụng cao cấp Electro',
+              total: ord.total_amount,
+              status: ord.order_status === 'pending' ? 'Chờ xác nhận' :
+                      ord.order_status === 'processing' ? 'Đóng gói' :
+                      ord.order_status === 'shipped' ? 'Vận chuyển' :
+                      ord.order_status === 'delivered' ? 'Đã hoàn thành' :
+                      ord.order_status === 'cancelled' ? 'Đã hủy' : 'Đang xử lý'
+            }));
+            setOrders(mapped);
+          } else {
+            setOrders([]);
+          }
         } finally {
           setLoading(false);
         }
@@ -82,14 +181,18 @@ export default function CustomerProfilePage() {
     };
 
     fetchProfileData();
-  }, []);
+  }, [currentUser, allOrders]);
 
   const handleLogout = () => {
     // Xoá thông tin phân quyền truy cập và chuyển hướng
     localStorage.removeItem('user_role');
     localStorage.removeItem('electro_current_user');
     localStorage.removeItem('user_info');
-    window.location.href = '/profile';
+    if (onLogout) {
+      onLogout();
+    } else {
+      window.location.reload();
+    }
   };
 
   return (
@@ -102,10 +205,19 @@ export default function CustomerProfilePage() {
             <span className="text-xs font-bold bg-blue-50 text-blue-600 px-2 py-0.5 rounded-md border border-blue-100">Khách hàng</span>
           </div>
           <div className="flex items-center gap-4 text-sm font-semibold text-slate-600">
-            <a href="/" className="flex items-center gap-1 hover:text-blue-600 transition-colors">
+            <button 
+              onClick={() => {
+                if (onBackToHome) {
+                  onBackToHome();
+                } else {
+                  window.location.href = '/';
+                }
+              }} 
+              className="flex items-center gap-1 hover:text-blue-600 transition-colors cursor-pointer bg-transparent border-0 font-semibold text-slate-650"
+            >
               <ArrowLeft size={14} /> Quay về Shop
-            </a>
-            <button className="flex items-center gap-1.5 text-red-500 hover:text-red-600 transition-colors cursor-pointer" onClick={handleLogout}>
+            </button>
+            <button className="flex items-center gap-1.5 text-red-500 hover:text-red-600 transition-colors cursor-pointer bg-transparent border-0 font-semibold" onClick={handleLogout}>
               <LogOut size={16} /> Đăng xuất
             </button>
           </div>
@@ -179,23 +291,43 @@ export default function CustomerProfilePage() {
               </div>
               
               <div className="divide-y divide-slate-100">
-                {orders.map((order) => (
-                  <div key={order.id} className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50/50 transition-colors">
+                {orders.length === 0 ? (
+                  <div className="p-10 text-center space-y-4">
+                    <div className="mx-auto w-16 h-16 bg-slate-50 border border-slate-100 rounded-full flex items-center justify-center text-slate-400">
+                      <ShoppingBag size={24} />
+                    </div>
                     <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-blue-600 font-mono">{order.id}</span>
-                        <span className="text-[11px] text-slate-400 font-semibold">{order.date}</span>
-                      </div>
-                      <p className="text-sm font-bold text-slate-900">{order.product}</p>
-                      <p className="text-sm font-black text-slate-900 mt-1">{order.total.toLocaleString('vi-VN')} đ</p>
+                      <h4 className="text-sm font-bold text-slate-800">Bạn chưa có đơn hàng nào</h4>
+                      <p className="text-xs text-slate-500">Cửa hàng Electro có hàng ngàn sản phẩm điện tử, gia dụng lý tưởng đang đợi bạn!</p>
                     </div>
-                    <div>
-                      <span className={`inline-block text-xs font-bold px-3 py-1 rounded-full border ${order.status === 'Đã hoàn thành' ? 'bg-green-50 border-green-200 text-green-700' : 'bg-blue-50 border-blue-200 text-blue-700'}`}>
-                        {order.status}
-                      </span>
-                    </div>
+                    {onBackToHome && (
+                      <button 
+                        onClick={onBackToHome}
+                        className="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-4 py-2 rounded-lg shadow-sm transition-colors cursor-pointer"
+                      >
+                        Đi mua sắm ngay
+                      </button>
+                    )}
                   </div>
-                ))}
+                ) : (
+                  orders.map((order) => (
+                    <div key={order.id} className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50/50 transition-colors">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-blue-600 font-mono">{order.id}</span>
+                          <span className="text-[11px] text-slate-400 font-semibold">{order.date}</span>
+                        </div>
+                        <p className="text-sm font-bold text-slate-900">{order.product}</p>
+                        <p className="text-sm font-black text-slate-900 mt-1">{order.total.toLocaleString('vi-VN')} đ</p>
+                      </div>
+                      <div>
+                        <span className={`inline-block text-xs font-bold px-3 py-1 rounded-full border ${order.status === 'Đã hoàn thành' ? 'bg-green-50 border-green-200 text-green-700' : 'bg-blue-50 border-blue-200 text-blue-700'}`}>
+                          {order.status}
+                        </span>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
 

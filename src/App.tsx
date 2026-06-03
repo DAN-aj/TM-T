@@ -101,8 +101,74 @@ export default function App() {
   });
   const [products, setProducts] = useState<Product[]>(mockProducts); // Danh sách sản phẩm khả dụng trong kho hàng điện máy
   const [reviews, setReviews] = useState<Review[]>(mockReviews); // Danh sách bình luận & đánh giá độc lập của khách hàng
-  const [cartItems, setCartItems] = useState<CartItem[]>([]); // Các phần tử giỏ hàng hiện thời của người dùng khách
-  const [orders, setOrders] = useState<Order[]>([]); // Cơ sở dữ liệu đơn hàng đặt thành công của toàn hệ thống
+  const [cartItems, setCartItems] = useState<CartItem[]>(() => {
+    const saved = localStorage.getItem('electro_cart_items_list');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          return parsed;
+        }
+      } catch (e) {
+        // Safe silence
+      }
+    }
+    return [];
+  }); // Các phần tử giỏ hàng hiện thời của người dùng khách
+  const [orders, setOrders] = useState<Order[]>(() => {
+    const saved = localStorage.getItem('electro_orders_list2026');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          return parsed;
+        }
+      } catch (e) {
+        // Safe silence
+      }
+    }
+    return [
+      {
+        order_id: 5011,
+        user_id: 2,
+        subtotal: 24900000,
+        discount_amount: 0,
+        shipping_fee: 0,
+        total_amount: 24900000,
+        order_status: 'pending',
+        payment_status: 'paid',
+        shipping_address: 'Số 15, Phố Cầu Giấy, Quận Cầu Giấy, Hà Nội',
+        created_at: '2026-06-02T10:00:00Z',
+        customerEmail: 'customer@electro.com'
+      },
+      {
+        order_id: 5012,
+        user_id: 2,
+        subtotal: 12400000,
+        discount_amount: 0,
+        shipping_fee: 0,
+        total_amount: 12400000,
+        order_status: 'processing',
+        payment_status: 'pending',
+        shipping_address: 'Số 15, Phố Cầu Giấy, Quận Cầu Giấy, Hà Nội',
+        created_at: '2026-06-01T15:30:00Z',
+        customerEmail: 'customer@electro.com'
+      },
+      {
+        order_id: 5013,
+        user_id: 2,
+        subtotal: 15400000,
+        discount_amount: 0,
+        shipping_fee: 0,
+        total_amount: 15400000,
+        order_status: 'delivered',
+        payment_status: 'paid',
+        shipping_address: 'Đà Nẵng, Việt Nam',
+        created_at: '2026-05-28T09:00:00Z',
+        customerEmail: 'customer@electro.com'
+      }
+    ];
+  }); // Cơ sở dữ liệu đơn hàng đặt thành công của toàn hệ thống
 
   // --- MODULE 5: ADMIN HANDLERS ---
   const handleAddProduct = (productData: Omit<Product, 'product_id' | 'avg_rating'>) => {
@@ -276,6 +342,16 @@ export default function App() {
   React.useEffect(() => {
     localStorage.setItem('electro_users_list2026', JSON.stringify(users));
   }, [users]);
+
+  // Đồng bộ giỏ hàng về localStorage để khi F5 / Chuyển khoản / Đăng nhập không bị mất
+  React.useEffect(() => {
+    localStorage.setItem('electro_cart_items_list', JSON.stringify(cartItems));
+  }, [cartItems]);
+
+  // Đồng bộ danh sách đơn đặt hàng về localStorage
+  React.useEffect(() => {
+    localStorage.setItem('electro_orders_list2026', JSON.stringify(orders));
+  }, [orders]);
 
   // Đồng bộ Khóa tài khoản: Nếu người dùng đang đăng nhập bị khóa tài khoản hoặc vẫn chưa phê duyệt thì tự động đăng xuất
   React.useEffect(() => {
@@ -639,7 +715,8 @@ export default function App() {
       order_status: 'pending', // Mới đặt hàng mặc định là Chờ Duyệt (pending)
       payment_status: checkoutPaymentMethod === 'cod' ? 'pending' : 'paid', // Nếu chuyển thanh toán online thì mặc định thanh toán thành công
       shipping_address: checkoutAddress,
-      created_at: new Date().toISOString()
+      created_at: new Date().toISOString(),
+      customerEmail: currentUser?.email || 'guest@example.com'
     };
 
     // Cập nhật danh sách đơn hàng toàn cục
@@ -694,7 +771,8 @@ export default function App() {
       order_status: 'pending',
       payment_status: orderData.paymentMethod === 'cod' ? 'pending' : 'paid',
       shipping_address: orderData.shippingAddress,
-      created_at: new Date().toISOString()
+      created_at: new Date().toISOString(),
+      customerEmail: currentUser?.email || 'guest@example.com'
     };
 
     setOrders((prev) => [newOrder, ...prev]);
@@ -1098,6 +1176,11 @@ export default function App() {
           onProductsChange={(updatedProducts) => setProducts(updatedProducts)}
           orders={orders}
           onOrdersChange={(updatedOrders) => setOrders(updatedOrders)}
+          onBackToShop={() => {
+            setIsAdminView(false);
+            setCurrentView('home');
+            navigate('/');
+          }}
         />
       ) : isAdminView ? (
         <AdminDashboard
@@ -1376,7 +1459,22 @@ export default function App() {
           )}
 
           {currentView === 'profile' && (
-            <CustomerProfilePage />
+            <CustomerProfilePage
+              currentUser={currentUser}
+              allOrders={orders}
+              onBackToHome={() => {
+                setCurrentView('home');
+                navigate('/');
+              }}
+              onLogout={() => {
+                setCurrentUser(null);
+                localStorage.removeItem('electro_current_user');
+                localStorage.removeItem('user_role');
+                setCurrentView('home');
+                navigate('/');
+                addToast('Đăng xuất thành công!', 'info');
+              }}
+            />
           )}
 
           {currentView === 'forbidden' && (
@@ -1397,64 +1495,74 @@ export default function App() {
           )}
 
           {/* Dải thông tin bổ sung: Xem đơn hàng cá nhân ở góc dưới khách hàng để tăng trải nghiệm dòng chảy */}
-          {orders.length > 0 && (
-            <div className="bg-slate-50 border-t border-b border-gray-150 py-12 text-left" id="customer_orders_tracking">
-              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <h3 className="text-lg font-bold text-slate-900 mb-6 flex items-center space-x-2">
-                  <CheckCircle className="w-5.5 h-5.5 text-cyan-600 animate-bounce" />
-                  <span>Theo dõi trạng thái đơn hàng của bạn ({orders.length} Đơn)</span>
-                </h3>
+          {currentView === 'profile' && (
+            (() => {
+              const userOrders = currentUser 
+                ? orders.filter(ord => ord.customerEmail === currentUser.email)
+                : orders;
+              
+              if (userOrders.length === 0) return null;
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {orders.map((ord) => (
-                    <div key={ord.order_id} className="bg-white p-5 rounded-2xl border border-gray-150 shadow-2xs">
-                      <div className="flex justify-between items-center mb-3">
-                        <span className="font-mono font-bold text-slate-800 text-sm">#MÃ ĐƠN {ord.order_id}</span>
-                        <span className={`px-2 py-0.5 rounded-sm text-[10px] font-bold uppercase font-mono ${
-                          ord.order_status === 'pending' ? 'bg-amber-50 text-amber-600' :
-                          ord.order_status === 'processing' ? 'bg-indigo-50 text-indigo-600' :
-                          ord.order_status === 'shipped' ? 'bg-sky-50 text-sky-600' :
-                          ord.order_status === 'delivered' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'
-                        }`}>
-                          {ord.order_status === 'pending' ? 'Chờ duyệt' :
-                           ord.order_status === 'processing' ? 'Đang soạn hàng' :
-                           ord.order_status === 'shipped' ? 'Đang vận chuyển' :
-                           ord.order_status === 'delivered' ? 'Đã giao hàng' : 'Đã hủy'}
-                        </span>
-                      </div>
-                      <div className="text-xs text-gray-500 space-y-1 mb-2.5">
-                        <p><strong>Ngày tạo:</strong> {new Date(ord.created_at).toLocaleDateString('vi-VN')} {new Date(ord.created_at).toLocaleTimeString('vi-VN')}</p>
-                        <p><strong>Địa chỉ nhận:</strong> {ord.shipping_address}</p>
-                        <p><strong>Cơ chế thanh toán:</strong> COD / Chuyển khoản trực tiếp</p>
-                      </div>
+              return (
+                <div className="bg-slate-50 border-t border-b border-gray-150 py-12 text-left" id="customer_orders_tracking">
+                  <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <h3 className="text-lg font-bold text-slate-900 mb-6 flex items-center space-x-2">
+                      <CheckCircle className="w-5.5 h-5.5 text-cyan-600 animate-bounce" />
+                      <span>Theo dõi trạng thái đơn hàng của bạn ({userOrders.length} Đơn)</span>
+                    </h3>
 
-                      {/* Thanh Trạng thái trực quan: Chờ xác nhận -> Đã đóng gói -> Đang giao -> Hoàn thành */}
-                      <div className="my-4 pt-3.5 pb-1 border-t border-b border-gray-100/80">
-                        <OrderStatusTracker status={ord.order_status} orderId={ord.order_id} />
-                      </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {userOrders.map((ord) => (
+                        <div key={ord.order_id} className="bg-white p-5 rounded-2xl border border-gray-150 shadow-2xs">
+                          <div className="flex justify-between items-center mb-3">
+                            <span className="font-mono font-bold text-slate-800 text-sm">#MÃ ĐƠN {ord.order_id}</span>
+                            <span className={`px-2 py-0.5 rounded-sm text-[10px] font-bold uppercase font-mono ${
+                              ord.order_status === 'pending' ? 'bg-amber-50 text-amber-600' :
+                              ord.order_status === 'processing' ? 'bg-indigo-50 text-indigo-600' :
+                              ord.order_status === 'shipped' ? 'bg-sky-50 text-sky-600' :
+                              ord.order_status === 'delivered' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'
+                            }`}>
+                              {ord.order_status === 'pending' ? 'Chờ duyệt' :
+                               ord.order_status === 'processing' ? 'Đang soạn hàng' :
+                               ord.order_status === 'shipped' ? 'Đang vận chuyển' :
+                               ord.order_status === 'delivered' ? 'Đã giao hàng' : 'Đã hủy'}
+                            </span>
+                          </div>
+                          <div className="text-xs text-gray-500 space-y-1 mb-2.5">
+                            <p><strong>Ngày tạo:</strong> {new Date(ord.created_at).toLocaleDateString('vi-VN')} {new Date(ord.created_at).toLocaleTimeString('vi-VN')}</p>
+                            <p><strong>Địa chỉ nhận:</strong> {ord.shipping_address}</p>
+                            <p><strong>Cơ chế thanh toán:</strong> COD / Chuyển khoản trực tiếp</p>
+                          </div>
 
-                      <div className="border-t border-gray-100 pt-3 flex justify-between items-center">
-                        <span className="text-xs text-gray-400">Khách chi thanh toán:</span>
-                        <span className="font-mono text-sm font-extrabold text-red-600">{ord.total_amount.toLocaleString('vi-VN')} ₫</span>
-                      </div>
+                          {/* Thanh Trạng thái trực quan: Chờ xác nhận -> Đã đóng gói -> Đang giao -> Hoàn thành */}
+                          <div className="my-4 pt-3.5 pb-1 border-t border-b border-gray-100/80">
+                            <OrderStatusTracker status={ord.order_status} orderId={ord.order_id} />
+                          </div>
 
-                      {/* Bổ sung nút hủy đơn hàng có confirm và undo cho khách hàng */}
-                      {ord.order_status === 'pending' && (
-                        <div className="mt-3 pt-3 border-t border-gray-105 flex justify-end" id={`cancel_order_btn_row_${ord.order_id}`}>
-                          <button
-                            onClick={() => handleCancelOrderClient(ord.order_id)}
-                            className="inline-flex items-center space-x-1 px-3 py-1.5 border border-red-200 hover:border-red-350 hover:bg-red-50 text-red-600 text-[11px] font-bold rounded-lg transition-all cursor-pointer"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                            <span>Yêu cầu huỷ đơn</span>
-                          </button>
+                          <div className="border-t border-gray-100 pt-3 flex justify-between items-center">
+                            <span className="text-xs text-gray-400">Khách chi thanh toán:</span>
+                            <span className="font-mono text-sm font-extrabold text-red-600">{ord.total_amount.toLocaleString('vi-VN')} ₫</span>
+                          </div>
+
+                          {/* Bổ sung nút hủy đơn hàng có confirm và undo cho khách hàng */}
+                          {ord.order_status === 'pending' && (
+                            <div className="mt-3 pt-3 border-t border-gray-105 flex justify-end" id={`cancel_order_btn_row_${ord.order_id}`}>
+                              <button
+                                onClick={() => handleCancelOrderClient(ord.order_id)}
+                                className="inline-flex items-center space-x-1 px-3 py-1.5 border border-red-200 hover:border-red-350 hover:bg-red-50 text-red-600 text-[11px] font-bold rounded-lg transition-all cursor-pointer"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                                <span>Yêu cầu huỷ đơn</span>
+                              </button>
+                            </div>
+                          )}
                         </div>
-                      )}
+                      ))}
                     </div>
-                  ))}
+                  </div>
                 </div>
-              </div>
-            </div>
+              );
+            })()
           )}
         </main>
       )}

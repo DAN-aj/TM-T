@@ -119,7 +119,25 @@ export default function AuthModal({
       return;
     }
 
-    // Nếu thành công (mô phỏng khớp mọi mật khẩu chính xác nếu có độ dài khớp chuẩn để tiện kiểm thử)
+    // 4. KIỂM TRA MẬT KHẨU KHỚP hoàn toàn (Password matching validation)
+    const trimmedPassword = loginPassword.trim();
+    let isMatched = false;
+    
+    if (matchedUser.email.toLowerCase() === 'admin@electro.com') {
+      isMatched = trimmedPassword === 'admin123' || trimmedPassword === '123456';
+    } else if (matchedUser.password) {
+      isMatched = trimmedPassword === matchedUser.password.trim();
+    } else {
+      isMatched = trimmedPassword === '123456';
+    }
+
+    if (!isMatched) {
+      errors.password = 'Mật khẩu nhập sai | Nguyên nhân: Khóa mật khẩu bảo mật không chính xác đối với tài khoản này | Cách sửa: Vui lòng nhập lại chính xác ký tự mật khẩu của bạn.';
+      setLoginErrors(errors);
+      return;
+    }
+
+    // Nếu thành công 
     setLoginErrors({});
     onLoginSuccess(matchedUser);
     onClose();
@@ -152,13 +170,13 @@ export default function AuthModal({
       }
     }
 
-    // 3. Kiểm tra định dạng Số điện thoại di động Việt Nam
+    // 3. Kiểm tra định dạng Số điện thoại di động Việt Nam chuẩn
     if (!registerPhone.trim()) {
       errors.phone = 'Bỏ trống Số điện thoại | Nguyên nhân: Rào liên lạc khẩn cấp không có dữ liệu để tổng đài viên gọi điện xác minh lắp máy | Cách sửa: Nhập số hotline di động chính chủ.';
     } else {
-      const phoneRegex = /^(0[3|5|7|8|9])+([0-8]{8})\b$/;
+      const phoneRegex = /^(0[3|5|7|8|9])[0-9]{8}$/;
       if (!phoneRegex.test(registerPhone.trim())) {
-        errors.phone = 'Sai định dạng viễn thông | Nguyên nhân: Số cung cấp không khớp định dạng nhà mạng Việt Nam (phải là 10 số, bắt đầu bằng 03/05/07/08/09) | Cách sửa: Thử rà xóa chữ số thừa hoặc thiếu và chắc chắn bắt đầu từ đầu 0.';
+        errors.phone = 'Sai định dạng viễn thông | Nguyên nhân: Số cung cấp không khớp định dạng nhà mạng Việt Nam (phải là 10 số, bắt đầu bằng 03/05/07/08/09) | Cách sửa: Vui lòng nhập đúng 10 chữ số di động.';
       }
     }
 
@@ -181,19 +199,20 @@ export default function AuthModal({
 
     setRegisterErrors({});
 
-    // Tạo đối tượng người dùng mới gửi lên hệ thống trung tâm
+    // Tạo đối tượng người dùng mới gửi lên hệ thống trung tâm bao gồm mật khẩu bảo an
     const newUser: UserType = {
       user_id: allUsers.length + 101, // Sinh mã user id mới đại diện tăng tiến
       role_id: 2, // Mặc định là Customer
       full_name: registerName.trim(),
       email: registerEmail.trim(),
       phone: registerPhone.trim(),
-      status: 'pending',
-      created_at: new Date().toISOString()
+      status: 'active',
+      created_at: new Date().toISOString(),
+      password: registerPassword
     };
 
     onAddUser(newUser);
-    setRegSuccessMsg(`Đăng ký tài khoản thành viên mới cho ${registerName} thành công! Tài khoản của bạn đang ở trạng thái "Chờ phê duyệt" từ Admin.`);
+    setRegSuccessMsg(`Đăng ký tài khoản thành viên mới cho ${registerName} thành công! Bạn có thể đăng nhập vào hệ thống và trải nghiệm mua sắm ngay lập tức.`);
     
     // Tự động nhảy về trang đăng nhập và gán email mới
     setLoginEmail(registerEmail.trim());

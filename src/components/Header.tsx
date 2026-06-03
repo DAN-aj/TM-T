@@ -263,6 +263,19 @@ export default function Header({
               </span>
             </div>
           </div>
+
+          {/* Quay lại giao diện quản trị Admin Dashboard nếu là admin nhưng đang ở chế độ xem khách */}
+          {currentUser && currentUser.role_id === 1 && !isAdminView && (
+            <button
+              onClick={() => setIsAdminView(true)}
+              className="flex items-center space-x-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 hover:scale-[1.02] active:scale-[0.98] text-white text-xs font-bold rounded-lg transition-all shadow-xs cursor-pointer border border-emerald-500"
+              id="header_admin_dashboard_enter_btn"
+              title="Quay lại giao diện quản lý Admin Dashboard"
+            >
+              <Sliders className="w-3.5 h-3.5" />
+              <span>Vào Dashboard</span>
+            </button>
+          )}
         </div>
       </div>
     </header>

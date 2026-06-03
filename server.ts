@@ -43,19 +43,30 @@ const dbConfig: mssql.config = {
 
 // Đối tượng giữ kết nối chính thức nhằm tối ưu tài nguyên (lazy initialization)
 let dbPool: mssql.ConnectionPool | null = null;
-let isDbConfigured = !!(process.env.DB_SERVER && process.env.DB_USER);
+let isDbConfigured = !!(process.env.DB_SERVER && process.env.DB_SERVER !== 'localhost');
+let isDbOffline = false;
 
 // Hàm kết nối an toàn bảo mật, tự động khởi tạo pool kết nối SQL Server khi cần dùng
 async function getDbConnection(): Promise<mssql.ConnectionPool> {
+  if (isDbOffline) {
+    throw new Error('Cơ sở dữ liệu đang ngoại tuyến. Hệ thống tự động chuyển đổi sang bộ lưu trữ cục bộ (Fallback Mode).');
+  }
   if (!dbPool) {
-    console.log('[MSSQL] Khởi tạo kết kết nối cơ sở dữ liệu SQL Server...');
+    console.log('[MSSQL] Khởi tạo kết nối cơ sở dữ liệu SQL Server...');
     try {
-      dbPool = await mssql.connect(dbConfig);
+      // Đặt ngưỡng thời gian chờ kết nối 3.5 giây để tránh treo ứng dụng
+      const connectionWithTimeout = Promise.race([
+        mssql.connect(dbConfig),
+        new Promise<never>((_, reject) => 
+          setTimeout(() => reject(new Error('Connection timeout')), 3500)
+        )
+      ]);
+      dbPool = await connectionWithTimeout;
       console.log('[MSSQL] Kết nối SQL Server thành công và sẵn sàng phục vụ!');
     } catch (err) {
-      console.error('[MSSQL Error] Khởi tạo kết nối SQL Server thất bại:');
-      console.error(err);
-      throw new Error('Không thể kết nối đến máy chủ Microsoft SQL Server. Vui lòng kiểm tra lại thông số cấu hình.');
+      isDbOffline = true;
+      console.warn('[MSSQL Info] Không thể kết nối đến máy chủ SQL Server. Hệ thống tự động kích hoạt chế độ đồng bộ dữ liệu cục bộ (Local Fallback Mode) để đảm bảo trải nghiệm hoạt động mượt mà.');
+      throw new Error('Không thể kết nối đến máy chủ Microsoft SQL Server. Đang chuyển sang sử dụng bộ nhớ giả lập dự phòng.');
     }
   }
   return dbPool;

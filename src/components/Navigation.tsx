@@ -152,6 +152,45 @@ export default function Navigation({
                   </button>
                 </>
               )}
+
+              {/* ADMIN: Trang quản lý Admin Dashboard & Hồ sơ Quản trị */}
+              {currentUser && currentUser.role_id === 1 && (
+                <>
+                  <button
+                    onClick={() => {
+                      setIsAdminView(true);
+                      setCurrentView('home');
+                    }}
+                    className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      isAdminView
+                        ? 'bg-emerald-600 text-white shadow-xs border border-emerald-500'
+                        : 'bg-emerald-600 hover:bg-emerald-700 hover:scale-[1.02] active:scale-[0.98] text-white border border-emerald-500 hover:border-emerald-600'
+                    }`}
+                    id="nav_admin_dashboard_enter_lnk"
+                    title="Quay lại giao diện Admin quản trị hệ thống"
+                  >
+                    <Sliders className="w-3.5 h-3.5" />
+                    <span>Trang Quản Trị</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setCurrentView('profile');
+                      setIsAdminView(false);
+                    }}
+                    className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      currentView === 'profile' && !isAdminView
+                        ? 'bg-cyan-600 text-white shadow-xs'
+                        : 'text-slate-700 bg-white hover:bg-slate-100 border border-gray-200'
+                    }`}
+                    id="nav_admin_profile_view_lnk"
+                    title="Xem hồ sơ cá nhân quản trị"
+                  >
+                    <User className="w-3.5 h-3.5 text-cyan-600" />
+                    <span>Hồ sơ của tôi</span>
+                  </button>
+                </>
+              )}
             </div>
 
             {/* Removed shortcut buttons */}

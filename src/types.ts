@@ -18,6 +18,7 @@ export interface User {
   phone: string; // Số điện thoại liên hệ
   status: 'active' | 'inactive' | 'pending'; // Trạng thái tài khoản hoạt động, khóa hoặc chờ duyệt
   created_at: string; // Ngày tạo tài khoản (định dạng ngày tháng)
+  password?: string; // Mật khẩu tài khoản phục vụ xác thực bảo mật
 }
 
 // Định nghĩa kiểu dữ liệu cho danh mục sản phẩm (Category) tương ứng với bảng 'categories'
@@ -48,6 +49,12 @@ export interface Product {
   image_url: string; // Liên kết hình ảnh trực quan của sản phẩm
   category?: string; // Tên phân loại sản phẩm hiển thị thêm
   brand?: string; // Tên thương hiệu hiển thị thêm
+  
+  // Các mở rộng chuyên sâu hỗ trợ Data Warehouse / Periodicity Reporting
+  id?: string; // Mã sản phẩm duy nhất định dạng chuỗi (Ví dụ: 'PROD-TV-001')
+  name?: string; // Tên đầy đủ của sản phẩm
+  stock?: number; // Số lượng tồn kho thực tế
+  daysInStock?: number; // Số ngày lưu kho thực tế
 }
 
 // Định nghĩa kiểu dữ liệu giỏ hàng (Cart) ứng với bảng 'carts'
@@ -84,6 +91,7 @@ export interface Order {
   payment_status: PaymentStatus; // Trạng thái thanh toán của đơn hàng
   shipping_address: string; // Địa chỉ nhận hàng của người dùng
   created_at: string; // Ngày đặt hàng
+  customerEmail?: string; // Địa chỉ email của người mua (hỗ trợ phân tách)
 }
 
 // Định nghĩa chi tiết vật phẩm trong đơn hàng (OrderItem) tương ứng với bảng 'order_items'
