@@ -206,7 +206,10 @@ export default function App() {
         payment_status: 'paid',
         shipping_address: 'Số 15, Phố Cầu Giấy, Quận Cầu Giấy, Hà Nội',
         created_at: '2026-06-02T10:00:00Z',
-        customerEmail: 'customer@electro.com'
+        customerEmail: 'customer@electro.com',
+        items: [
+          { product_id: 1, quantity: 1, unit_price: 24900000 }
+        ]
       },
       {
         order_id: 5012,
@@ -219,7 +222,10 @@ export default function App() {
         payment_status: 'pending',
         shipping_address: 'Số 15, Phố Cầu Giấy, Quận Cầu Giấy, Hà Nội',
         created_at: '2026-06-01T15:30:00Z',
-        customerEmail: 'customer@electro.com'
+        customerEmail: 'customer@electro.com',
+        items: [
+          { product_id: 2, quantity: 1, unit_price: 12400000 }
+        ]
       },
       {
         order_id: 5013,
@@ -232,7 +238,10 @@ export default function App() {
         payment_status: 'paid',
         shipping_address: 'Đà Nẵng, Việt Nam',
         created_at: '2026-05-28T09:00:00Z',
-        customerEmail: 'customer@electro.com'
+        customerEmail: 'customer@electro.com',
+        items: [
+          { product_id: 3, quantity: 1, unit_price: 15400000 }
+        ]
       }
     ];
   }); // Cơ sở dữ liệu đơn hàng đặt thành công của toàn hệ thống
@@ -793,7 +802,12 @@ export default function App() {
       payment_status: checkoutPaymentMethod === 'cod' ? 'pending' : 'paid', // Nếu chuyển thanh toán online thì mặc định thanh toán thành công
       shipping_address: checkoutAddress,
       created_at: new Date().toISOString(),
-      customerEmail: currentUser?.email || 'guest@example.com'
+      customerEmail: currentUser?.email || 'guest@example.com',
+      items: cartItems.map((ci) => ({
+        product_id: ci.product_id,
+        quantity: ci.quantity,
+        unit_price: ci.unit_price
+      }))
     };
 
     // Cập nhật danh sách đơn hàng toàn cục

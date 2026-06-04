@@ -93,6 +93,11 @@ export interface Order {
   shipping_address: string; // Địa chỉ nhận hàng của người dùng
   created_at: string; // Ngày đặt hàng
   customerEmail?: string; // Địa chỉ email của người mua (hỗ trợ phân tách)
+  items?: Array<{
+    product_id: number;
+    quantity: number;
+    unit_price: number;
+  }>;
 }
 
 // Định nghĩa chi tiết vật phẩm trong đơn hàng (OrderItem) tương ứng với bảng 'order_items'
