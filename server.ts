@@ -552,7 +552,9 @@ async function bootstrapServer() {
     console.log(`===========================================================`);
     console.log(`🚀 [Electro Full-Stack Server] Đang chạy tại: http://localhost:${PORT}`);
     console.log(`⚡ Chế độ chạy: ${process.env.NODE_ENV === 'production' ? 'PRODUCTION' : 'DEVELOPMENT'}`);
-    console.log(`📦 Kết nối SQL Server: ${isDbConfigured ? 'Có cấu cấu hình DB' : 'Đang sử dụng bộ nhớ giả lập'}`);
+    if (isDbConfigured) {
+      console.log(`📦 Kết nối SQL Server: Đang sử dụng cấu hình DB thực tế`);
+    }
     console.log(`===========================================================`);
   });
 }

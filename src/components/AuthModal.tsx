@@ -341,6 +341,74 @@ export default function AuthModal({
               </button>
             </div>
 
+            {/* Bảng hỗ trợ thông tin Đăng Nhập nhanh & điền nhanh (UX Auto-fill Helper) */}
+            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4.5 mt-4 text-xs">
+              <div className="flex items-center space-x-1.5 text-slate-800 font-bold uppercase tracking-wider text-[11px] mb-2.5">
+                <ShieldCheck className="w-4 h-4 text-cyan-600" />
+                <span>Nhấp chọn để tự động điền tài khoản mẫu</span>
+              </div>
+              <div className="space-y-2">
+                {/* 1. Tài khoản khách hàng thông dụng */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLoginEmail('customer@electro.com');
+                    setLoginPassword('123456');
+                    setLoginErrors({});
+                  }}
+                  className="w-full text-left bg-white hover:bg-cyan-50/50 border border-slate-200 hover:border-cyan-200 p-2.5 rounded-xl transition-all cursor-pointer block"
+                >
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="font-semibold text-slate-700 text-[11px]">👤 Tài khoản Khách Hàng (Customer)</span>
+                    <span className="text-[9px] bg-cyan-100 text-cyan-800 px-1.5 py-0.5 rounded-md font-medium">Chọn nhanh</span>
+                  </div>
+                  <div className="text-[10px] text-slate-500 font-mono flex items-center justify-between">
+                    <span>Email: customer@electro.com</span>
+                    <span>Pass: 123456</span>
+                  </div>
+                </button>
+
+                {/* 2. Tài khoản khách hàng cá nhân hóa */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLoginEmail('ngocduonganhxk@gmail.com');
+                    setLoginPassword('123456');
+                    setLoginErrors({});
+                  }}
+                  className="w-full text-left bg-white hover:bg-cyan-50/50 border border-slate-200 hover:border-cyan-200 p-2.5 rounded-xl transition-all cursor-pointer block"
+                >
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="font-semibold text-slate-700 text-[11px]">👤 Tài khoản Khách Hàng (Gmail)</span>
+                    <span className="text-[9px] bg-cyan-100 text-cyan-800 px-1.5 py-0.5 rounded-md font-medium">Chọn nhanh</span>
+                  </div>
+                  <div className="text-[10px] text-slate-500 font-mono flex items-center justify-between">
+                    <span>Email: ngocduonganhxk@gmail.com</span>
+                    <span>Pass: 123456</span>
+                  </div>
+                </button>
+
+                {/* 3. Tài khoản quản trị cấp cao */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLoginEmail('admin@electro.com');
+                    setLoginPassword('123456');
+                    setLoginErrors({});
+                  }}
+                  className="w-full text-left bg-white hover:bg-red-5/50 border border-slate-200 hover:border-red-200 p-2.5 rounded-xl transition-all cursor-pointer block"
+                >
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="font-semibold text-red-700 text-[11px]">🔑 Tài khoản Quản Trị Viên (Admin)</span>
+                    <span className="text-[9px] bg-red-100 text-red-800 px-1.5 py-0.5 rounded-md font-medium">Chọn nhanh</span>
+                  </div>
+                  <div className="text-[10px] text-slate-500 font-mono flex items-center justify-between">
+                    <span>Email: admin@electro.com</span>
+                    <span>Pass: 123456</span>
+                  </div>
+                </button>
+              </div>
+            </div>
 
           </form>
         )}
