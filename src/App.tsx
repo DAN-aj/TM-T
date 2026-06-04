@@ -77,7 +77,13 @@ export default function App() {
       try {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed;
+          // Khắc phục trạng thái Admin bị khóa nhầm: Luôn tự chữa trạng thái Admin thành active để khắc phục bug khoá nhầm
+          return parsed.map((u: UserType) => {
+            if (u.email.toLowerCase() === 'admin@electro.com' || u.role_id === 1) {
+              return { ...u, status: 'active' as const };
+            }
+            return u;
+          });
         }
       } catch (e) {
         // Safe silence
@@ -91,6 +97,10 @@ export default function App() {
       try {
         const parsed = JSON.parse(saved);
         if (parsed && typeof parsed === 'object' && parsed.user_id) {
+          // Khắc phục trạng thái Admin bị khóa nhầm: Luôn đảm bảo admin đăng nhập có status === 'active'
+          if (parsed.email.toLowerCase() === 'admin@electro.com' || parsed.role_id === 1) {
+            parsed.status = 'active';
+          }
           return parsed;
         }
       } catch (e) {
@@ -283,6 +293,11 @@ export default function App() {
   };
 
   const handleUpdateUserStatus = (userId: number, nextStatus: 'active' | 'inactive') => {
+    const targetUser = users.find(u => u.user_id === userId);
+    if (targetUser && (targetUser.email.toLowerCase() === 'admin@electro.com' || targetUser.role_id === 1) && nextStatus === 'inactive') {
+      addToast('Không thể khóa tài khoản quản trị viên tối cao (Admin)!', 'error');
+      return;
+    }
     setUsers((prev) =>
       prev.map((u) => {
         if (u.user_id === userId) {
